@@ -366,7 +366,7 @@ export async function syncWebmcp(
 
   await write(
     "load_scenario",
-    "Replace the board with a fresh unlocked deal. Use A after a locked board (hourly, 6 open). B is a retainer with indemnity already held. C is a rush with payment cut. This is the unlock. Do not click A/B/C on the page.",
+    "Judge/demo fixture: replace the board with a fresh unlocked deal and clear committed. Not a production unlock of a signed contract. Use A after a locked board (hourly, 6 open). B is a retainer with indemnity already held. C is a rush with payment cut. Do not click A/B/C on the page.",
     {
       type: "object",
       properties: {
