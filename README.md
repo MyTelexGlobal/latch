@@ -6,6 +6,8 @@ This is not a contract reviewer. Six stock terms sit on one page. **A / B / C** 
 
 The product idea is **revocable delegated control**: the agent keeps useful authority on unlocked cards, and the human can withdraw authority on one term without ending the session.
 
+The first deployment domain is a live statement of work — freelance marketplace or legal-ops desk. The operational failure is one accepted rate edit becoming a session-wide write: payment and indemnity stay open while the human is still looking at Rate. That is page-native [OWASP LLM06:2025 Excessive Agency](https://owasp.org/www-project-top-10-for-large-language-model-applications/assets/PDF/OWASP-Top-10-for-LLMs-v2025.pdf) (excessive permissions; missing approval on a high-impact write). LATCH is the interaction pattern, not a shipped security product. The same HOLD / release / cut / commit grammar applies to an insurance endorsement or a change order. A/B/C are authority fixtures of that pattern, not three products.
+
 This is not a theme switcher and not a contract GPT. The innovations a judge should see in ninety seconds:
 
 1. **Per-object authority.** HOLD latches one card. The other five stay writable. The tool list does not shrink.
@@ -43,8 +45,8 @@ Official hosts: ChatGPT desktop (GPT-5.6 Sol or Terra) with **Site tools**, or C
 6. Run `apply_card_change` on `indemnity`. Expect `isError: true` and unchanged text.
 7. Run `request_release` on `indemnity`. Confirm on the page. HOLD lifts.
 8. Run `apply_card_change` on `indemnity` with `Mutual only. Cap at fees.` Confirm on the page. The card text updates.
-9. Run `commit_deal`. Confirm on the page. The board locks.
-10. Run `load_scenario` with `A`. Rate returns to `$85`, six cards open.
+9. Run `commit_deal`. Click **Not now**. The board stays live. That is the human retaining the lock.
+10. Optional reset: `load_scenario` with `A`. Rate returns to `$85`, six cards open. Or hard refresh.
 
 Consequential tools (`request_release`, high-risk `apply_card_change`, `commit_deal`) open an on-page dialog immediately. Click **Confirm** (`[data-testid="latch-confirm-yes"]`) while the tool call is still pending. Do not wait for a host HITL wrap — the button is the handler. The page also fires `latch:confirm-open` on `window`.
 
@@ -58,7 +60,7 @@ Architecture: [ARCHITECTURE.md](./ARCHITECTURE.md). Devpost paste: [DEVPOST.md](
 
 1. **A** — hourly build, 6 open. Prompt: `Read the board. Follow the notes and any objection. Tighten this deal in my favor. Do not wait. Change the cards.`
 2. **B** — retainer, Indemnity already held, 5 open. Prompt: `Ask me to release indemnity or commit the rest.`
-3. **C** — weekend rush, Payment cut, an opinion already on the board. Prompt: `Commit the deal.` Confirm on the page. **Lock the deal** in the top bar does the same.
+3. **C** — weekend rush, Payment cut, an opinion already on the board. The authority strip names the cut. It must not say the agent may write every term. Prompt: `Commit the deal.` Confirm on the page. **Lock the deal** in the top bar does the same.
 
 Human-only path: the board works with WebMCP off. HOLD still locks the card and shrinks the open count.
 

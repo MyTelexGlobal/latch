@@ -12,9 +12,10 @@ The stop has to happen on the open tab, on the same objects the human sees. A re
 
 | File | Role |
 |---|---|
-| `src/board.ts` | Pure reducers. No I/O. Scenario seeds A/B/C. |
+| `src/board.ts` | Pure reducers. No I/O. Scenario seeds A/B/C. Cut cards are not writable here. |
+| `src/authority.ts` | Strip copy. Must match `boardSnapshot` held / cut / writable. |
 | `src/webmcp.ts` | Late-bind `modelContext`, register seven tools once, enforce HOLD inside `execute`. |
-| `src/confirm.tsx` | On-page Confirm / Not now. Source of truth for consequential writes. |
+| `src/confirm.tsx` | On-page Confirm / Not now. Source of truth. No late reopen after abort. |
 | `src/App.tsx` | Skin, theme, board ref, one registration effect. |
 | `src/hitl.ts` | Abort / host-wrap / post-confirm guards. Covered by `npm test`. |
 | `src/skins/*` | Three attention modes (audit / table / latch) over one board. |

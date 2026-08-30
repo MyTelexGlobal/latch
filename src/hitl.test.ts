@@ -17,6 +17,7 @@ import {
   applyChange,
   createIdleBoard,
   holdCard,
+  loadScenario,
   writableCardIds,
 } from "./board";
 
@@ -88,6 +89,17 @@ describe("post-confirm guards", () => {
     const after = applyChange(board, "indemnity", "should not land", "agent");
     expect(after.cards.find((item) => item.id === "indemnity")?.text).toBe(
       board.cards.find((item) => item.id === "indemnity")?.text,
+    );
+  });
+
+  it("refuses apply when the card is cut, as on scenario C", () => {
+    const board = loadScenario("C");
+    expect(writableCardIds(board)).not.toContain("payment");
+    const card = board.cards.find((item) => item.id === "payment");
+    expect(applyBlockReason({}, board, card, "payment")).toMatch(/cut/);
+    const after = applyChange(board, "payment", "should not land", "agent");
+    expect(after.cards.find((item) => item.id === "payment")?.text).toBe(
+      board.cards.find((item) => item.id === "payment")?.text,
     );
   });
 });

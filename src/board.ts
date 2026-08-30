@@ -555,7 +555,7 @@ export function clearObject(board: Board, id: CardId, actor: Actor): Board {
   };
 }
 
-/** Stage agent text without applying it. */
+/** Stage agent text without applying it. Cut cards are not writable. */
 export function proposeChange(
   board: Board,
   id: CardId,
@@ -563,7 +563,7 @@ export function proposeChange(
   actor: Actor,
 ): Board {
   const card = getCard(board, id);
-  if (!card || card.held || board.committed) return board;
+  if (!card || card.held || card.veto?.cut || board.committed) return board;
 
   return {
     ...board,
@@ -585,7 +585,7 @@ export function applyChange(
   actor: Actor,
 ): Board {
   const card = getCard(board, id);
-  if (!card || card.held || board.committed) return board;
+  if (!card || card.held || card.veto?.cut || board.committed) return board;
 
   return {
     ...board,
