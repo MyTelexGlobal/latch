@@ -1,6 +1,9 @@
 # Devpost fields (English, paste as-is)
 
-Author: Yury Myshinskiy. Live: https://latch.aa-c41.workers.dev  
+Author: Yury Myshinskiy.
+
+Live: https://latch.aa-c41.workers.dev
+
 Repo: https://github.com/MyTelexGlobal/latch
 
 ## Why this use case is a strong fit for WebMCP
