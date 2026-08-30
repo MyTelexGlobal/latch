@@ -34,9 +34,21 @@ export type SkinId = "sheet" | "console" | "focus";
 export type ThemeId = "day" | "night";
 
 export const SKINS: { id: SkinId; label: string; hint: string }[] = [
-  { id: "sheet", label: "List", hint: "All terms in one list." },
-  { id: "console", label: "Side by side", hint: "All terms in a row." },
-  { id: "focus", label: "One at a time", hint: "One term large." },
+  {
+    id: "sheet",
+    label: "List",
+    hint: "Audit mode — scan every grant of authority in one column.",
+  },
+  {
+    id: "console",
+    label: "Side by side",
+    hint: "Table mode — watch every card while the agent writes.",
+  },
+  {
+    id: "focus",
+    label: "One at a time",
+    hint: "Latch mode — the contested term fills the frame.",
+  },
 ];
 
 export const THEMES: { id: ThemeId; label: string }[] = [

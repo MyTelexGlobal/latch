@@ -93,8 +93,14 @@ export function App() {
         confirm: (message, signal) => confirmRef.current(message, signal),
       },
       controller.signal,
-      () => setAvailable(true),
-    ).catch(() => {});
+      () => {
+        document.documentElement.dataset.latchWebmcp = "live";
+        setAvailable(true);
+      },
+    ).catch((error: unknown) => {
+      document.documentElement.dataset.latchWebmcp = "register-error";
+      console.error("LATCH WebMCP register did not complete", error);
+    });
     return () => controller.abort();
   }, []);
 
@@ -166,7 +172,7 @@ export function App() {
   return (
     <div className="app" data-skin={skin} data-theme={theme}>
       <div className="switcher">
-        <div className="view-tabs" role="tablist" aria-label="Board view">
+          <div className="view-tabs" role="tablist" aria-label="Attention mode">
           {SKINS.map((item) => (
             <button
               key={item.id}

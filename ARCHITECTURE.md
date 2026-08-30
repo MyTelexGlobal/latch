@@ -16,11 +16,22 @@ The stop has to happen on the open tab, on the same objects the human sees. A re
 | `src/webmcp.ts` | Late-bind `modelContext`, register seven tools once, enforce HOLD inside `execute`. |
 | `src/confirm.tsx` | On-page Confirm / Not now. Source of truth for consequential writes. |
 | `src/App.tsx` | Skin, theme, board ref, one registration effect. |
-| `src/skins/*` | List / Side by side / One at a time over the same board. |
+| `src/skins/*` | Three attention modes (audit / table / latch) over one board. |
 | `src/vite-env.d.ts` | Host `ModelContext` types. |
 
-Live: https://latch.aa-c41.workers.dev  
+Live: https://latch.aa-c41.workers.dev
+
 Source: https://github.com/MyTelexGlobal/latch
+
+## Three attention modes (not three themes)
+
+List, Side by side, and One at a time share `Board`, tools, HOLD, notes, and confirm. They are not visual skins. They are three jobs the human does while an agent writes:
+
+- **List (audit).** Vertical scan of every grant. Built for the moment before you trust the agent.
+- **Side by side (table).** Default. All cards stay in view so a tool mutation is witnessed, not discovered in a transcript.
+- **One at a time (latch).** One contested term. This is the layout that makes per-object HOLD obvious: the rest of the deal still exists, but attention collapses to the card whose write path you just revoked.
+
+Day/night is a theme. A/B/C are authority fixtures. The three modes are the creative argument: shared visual context has to change when the human's role changes, without splitting the session.
 
 ## Tools
 

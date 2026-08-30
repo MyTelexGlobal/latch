@@ -115,8 +115,9 @@ function toolError(message: string) {
  * Open the page dialog first, then optionally notify the host.
  *
  * Awaiting `requestUserInteraction` is unsafe: some hosts advertise the method,
- * never run the callback, and abort the tool on timeout. The visible Confirm
- * button is the handler. A test driver should wait for it in parallel.
+ * never run the callback, and abort the tool on timeout. Sync throws are
+ * caught. The visible Confirm button is the handler. A test driver should
+ * wait for it in parallel.
  */
 async function askHuman(
   extra: ModelContextExecuteExtra | undefined,
@@ -127,15 +128,22 @@ async function askHuman(
 
   const decision = confirm(message, extra?.signal);
 
-  if (typeof extra?.requestUserInteraction === "function") {
-    void Promise.resolve(extra.requestUserInteraction(() => decision)).catch(
-      () => {
-        /* The page dialog already owns the answer. */
-      },
-    );
+  const wrap = extra?.requestUserInteraction;
+  if (typeof wrap === "function") {
+    try {
+      void Promise.resolve(wrap(() => decision)).catch(() => {
+        /* Host wrap settled later. The page click already owns the answer. */
+      });
+    } catch {
+      /* Sync throw from a subset host. The page dialog stays up. */
+    }
   }
 
   return decision;
+}
+
+function aborted(extra?: ModelContextExecuteExtra) {
+  return Boolean(extra?.signal?.aborted);
 }
 
 /**
@@ -329,12 +337,24 @@ export async function syncWebmcp(
           `Apply this change to ${target.title}?\n\n${text}`,
         );
         if (!allowed) {
-          if (extra?.signal?.aborted) return toolError("cancelled");
+          if (aborted(extra)) return toolError("cancelled");
           return toolError("human rejected the apply");
         }
       }
 
-      api.setBoard(applyChange(api.getBoard(), id, text, "agent"));
+      if (aborted(extra)) return toolError("cancelled");
+      const latest = api.getBoard();
+      if (!latest.started || latest.committed) {
+        return toolError("board is locked. Call load_scenario with A for a fresh unlocked hourly board.");
+      }
+      const live = getCard(latest, id);
+      if (!live || live.held) {
+        return toolError(`${id} is on HOLD. Call request_release or ask the human to let go.`);
+      }
+      if (live.veto?.cut) {
+        return toolError(`${id} is cut from the deal. Do not rewrite it.`);
+      }
+      api.setBoard(applyChange(latest, id, text, "agent"));
       return toolOk({ ok: true, card_id: id, text });
     },
     { untrusted: true },
@@ -374,10 +394,17 @@ export async function syncWebmcp(
         `Release HOLD on ${target.title}?\n\n${reason}`,
       );
       if (!allowed) {
-        if (extra?.signal?.aborted) return toolError("cancelled");
+        if (aborted(extra)) return toolError("cancelled");
         return toolError("human kept the HOLD");
       }
-      api.setBoard(releaseCard(api.getBoard(), id, "you"));
+      if (aborted(extra)) return toolError("cancelled");
+      const latest = api.getBoard();
+      if (!latest.started || latest.committed) {
+        return toolError("board is locked. Call load_scenario with A for a fresh unlocked hourly board.");
+      }
+      const live = getCard(latest, id);
+      if (!live?.held) return toolError(`${id} is not on HOLD`);
+      api.setBoard(releaseCard(latest, id, "you"));
       return toolOk({ ok: true, released: id });
     },
   );
@@ -397,10 +424,15 @@ export async function syncWebmcp(
         "Lock this deal and freeze the board?",
       );
       if (!allowed) {
-        if (extra?.signal?.aborted) return toolError("cancelled");
+        if (aborted(extra)) return toolError("cancelled");
         return toolError("human rejected commit");
       }
-      api.setBoard(commitDeal(api.getBoard(), "agent"));
+      if (aborted(extra)) return toolError("cancelled");
+      const latest = api.getBoard();
+      if (!latest.started || latest.committed) {
+        return toolError("board is already locked. Call load_scenario with A to start a new deal.");
+      }
+      api.setBoard(commitDeal(latest, "agent"));
       return toolOk({ ok: true, committed: true });
     },
   );
