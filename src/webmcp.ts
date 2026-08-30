@@ -22,6 +22,7 @@ import {
 export type HoldApi = {
   getBoard: () => Board;
   setBoard: (next: Board) => void;
+  confirm: (message: string) => Promise<boolean>;
 };
 
 export type AgentHand = {
@@ -102,18 +103,19 @@ function toolError(message: string) {
 
 async function askHuman(
   extra: ModelContextExecuteExtra | undefined,
-  run: () => boolean | Promise<boolean>,
+  confirm: (message: string) => Promise<boolean>,
+  message: string,
 ): Promise<boolean> {
   if (extra?.signal?.aborted) return false;
-  if (extra?.requestUserInteraction) {
+  const onPage = () => confirm(message);
+  if (typeof extra?.requestUserInteraction === "function") {
     try {
-      return Boolean(await extra.requestUserInteraction(run));
+      return Boolean(await extra.requestUserInteraction(onPage));
     } catch {
-      // ChatGPT / some shims advertise HITL and then reject
-      // ("requestUserInteraction is not supported"). Confirm locally.
+      // Host handed control back. The page dialog completes the same ask.
     }
   }
-  return Boolean(await run());
+  return onPage();
 }
 
 export function listAgentHands(board: Board): AgentHand[] {
@@ -293,8 +295,10 @@ export async function syncWebmcp(
       }
 
       if (target.risk === "high") {
-        const allowed = await askHuman(extra, () =>
-          window.confirm(`Apply this change to ${target.title}?\n\n${text}`),
+        const allowed = await askHuman(
+          extra,
+          api.confirm,
+          `Apply this change to ${target.title}?\n\n${text}`,
         );
         if (!allowed) {
           if (extra?.signal?.aborted) return toolError("cancelled");
@@ -336,8 +340,10 @@ export async function syncWebmcp(
           ? input.reason.trim()
           : "No reason given.";
 
-      const allowed = await askHuman(extra, () =>
-        window.confirm(`Release HOLD on ${target.title}?\n\n${reason}`),
+      const allowed = await askHuman(
+        extra,
+        api.confirm,
+        `Release HOLD on ${target.title}?\n\n${reason}`,
       );
       if (!allowed) {
         if (extra?.signal?.aborted) return toolError("cancelled");
@@ -357,8 +363,10 @@ export async function syncWebmcp(
       if (!current.started || current.committed) {
         return toolError("board is already locked. Call load_scenario with A to start a new deal.");
       }
-      const allowed = await askHuman(extra, () =>
-        window.confirm("Commit this deal and freeze the board?"),
+      const allowed = await askHuman(
+        extra,
+        api.confirm,
+        "Lock this deal and freeze the board?",
       );
       if (!allowed) {
         if (extra?.signal?.aborted) return toolError("cancelled");

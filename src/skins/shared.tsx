@@ -9,6 +9,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useCallback,
   useMemo,
   useRef,
   useState,
@@ -701,9 +702,66 @@ export function LinkLed({ available }: { available: boolean }) {
   return (
     <span
       className={available ? "led on" : "led"}
-      title={available ? "Agent tools are live" : "Agent tools in ChatGPT desktop"}
+      title={available ? "Agent tools are live" : "This page publishes agent tools"}
     />
   );
+}
+
+type ConfirmPrompt = {
+  message: string;
+  resolve: (ok: boolean) => void;
+};
+
+export function useBoardConfirm() {
+  const [prompt, setPrompt] = useState<ConfirmPrompt | null>(null);
+
+  const confirm = useCallback((message: string) => {
+    return new Promise<boolean>((resolve) => {
+      setPrompt((current) => {
+        current?.resolve(false);
+        return { message, resolve };
+      });
+    });
+  }, []);
+
+  const answer = (ok: boolean) => {
+    setPrompt((current) => {
+      current?.resolve(ok);
+      return null;
+    });
+  };
+
+  useEffect(() => {
+    if (!prompt) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") answer(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [prompt]);
+
+  const layer = prompt ? (
+    <div
+      className="confirm-layer"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="latch-confirm-copy"
+    >
+      <div className="confirm-card">
+        <p id="latch-confirm-copy">{prompt.message}</p>
+        <div className="confirm-actions">
+          <button type="button" className="latch" onClick={() => answer(true)}>
+            Confirm
+          </button>
+          <button type="button" className="confirm-hold" onClick={() => answer(false)}>
+            Not now
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  return { confirm, layer };
 }
 
 export function PendingMove({

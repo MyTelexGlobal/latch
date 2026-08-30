@@ -1478,3 +1478,47 @@ html.is-sorting * {
     width: 100%;
   }
 }
+
+.confirm-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--ink) 28%, transparent);
+}
+
+.confirm-card {
+  width: min(440px, 100%);
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: var(--lift);
+  padding: 22px 22px 18px;
+}
+
+.confirm-card p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.confirm-hold {
+  border: 1px solid var(--line);
+  background: var(--well);
+  color: var(--ink);
+  font-weight: 650;
+  padding: 10px 14px;
+  border-radius: 999px;
+}

@@ -12,27 +12,30 @@ Live: [https://latch.aa-c41.workers.dev](https://latch.aa-c41.workers.dev)
 
 The stop happens on the live page, while the agent is still acting. A side chat cannot revoke one card and leave the rest in the agent's hands.
 
-## 90-second Chrome judge path
+## 90-second judge path
 
-Chrome 149+ with `chrome://flags/#enable-webmcp-testing` enabled. Open the live URL. First visit is **Side by side**, scenario **A**, Rate `$85 / hour`. A hard refresh always returns to this board: the deal is not stored, only the last view and theme.
+Official hosts: ChatGPT desktop (GPT-5.6 Sol or Terra) with **Site tools**, or Chrome 149+ with `chrome://flags/#enable-webmcp-testing`. Open the live URL. First visit is **Side by side**, scenario **A**, Rate `$85 / hour`. A hard refresh always returns to this board: the deal is not stored, only the last view and theme.
 
 1. Confirm six **open** cards and the Indemnity note `Mutual only. Cap at fees.`
-2. DevTools → Application → **WebMCP**. Seven tools: `get_board_state`, `inspect_card`, `propose_card_change`, `apply_card_change`, `request_release`, `commit_deal`, `load_scenario`.
+2. Show the seven tools: `get_board_state`, `inspect_card`, `propose_card_change`, `apply_card_change`, `request_release`, `commit_deal`, `load_scenario` (Site tools, or DevTools → Application → WebMCP).
 3. Run `get_board_state`. Read `writable`, `held`, `committed`, and the Indemnity note.
 4. Run `apply_card_change` with `card_id` `rate` and text `$99 / hour. Weekly invoice. No cap.` The Rate card text must change. Do not click the card.
-5. Press **Hold this** on Indemnity. Open count becomes 5. The tool list still shows all seven tools.
+5. Press **Hold this** on Indemnity. Open count becomes 5. All seven tools stay listed.
 6. Run `apply_card_change` on `indemnity`. Expect `isError: true` and unchanged text.
-7. Run `load_scenario` with `A`. Rate returns to `$85`, six cards open, no HOLD.
+7. Run `request_release` on `indemnity`. Confirm on the page. HOLD lifts.
+8. Run `apply_card_change` on `indemnity` with `Mutual only. Cap at fees.` Confirm on the page. The card text updates.
+9. Run `commit_deal`. Confirm on the page. The board locks.
+10. Run `load_scenario` with `A`. Rate returns to `$85`, six cards open.
 
-ChatGPT desktop (GPT-5.6 Sol or Terra) is the other official host: open the same URL and use **Site tools** in that browser's address bar. If Site tools are missing on an account, use the Chrome path above. Do not click Object or Lock and call that a tool demo.
+Demo those tools through Site tools or the inspector. Object and Lock are human controls, not the tool proof.
 
-`load_scenario` is a **judge/demo fixture**. It reloads A, B, or C and clears `committed` so a locked board can be shown again. It is not a production unlock of a signed contract. The agent must call it instead of clicking A/B/C.
+`load_scenario` is a **judge/demo fixture**. It reloads A, B, or C and clears `committed` so a locked board can be shown again. It is not a production unlock of a signed contract. The agent calls it instead of clicking A/B/C.
 
 ## Scenarios
 
 1. **A** — hourly build, 6 open. Prompt: `Read the board. Follow the notes and any objection. Tighten this deal in my favor. Do not wait. Change the cards.`
 2. **B** — retainer, Indemnity already held, 5 open. Prompt: `Ask me to release indemnity or commit the rest.`
-3. **C** — weekend rush, Payment cut, an opinion already on the board. Prompt: `Commit the deal.` Expect a confirmation. **Lock the deal** in the top bar does the same.
+3. **C** — weekend rush, Payment cut, an opinion already on the board. Prompt: `Commit the deal.` Confirm on the page. **Lock the deal** in the top bar does the same.
 
 Human-only path: the board works with WebMCP off. HOLD still locks the card and shrinks the open count.
 
@@ -49,7 +52,7 @@ npm run build
 
 ## WebMCP notes
 
-Tools are registered once on the top-level page with `document.modelContext.registerTool` (or `navigator.modelContext` if that is what the host injects). Registration waits if the API appears after first paint. Tools stay registered for the life of the page; HOLD and lock are enforced inside `execute`, so the agent never sees the tool list flicker. After a lock, `load_scenario` with `A` starts a fresh unlocked hourly board — the agent must not click A/B/C. Results use the MCP `{ content: [{ type: "text" }] }` shape. HOLD is a human gesture, not an agent tool. Agent-proposed text is marked `untrustedContentHint`. Commit, high-risk apply, and `request_release` ask the human. They try `requestUserInteraction` when the host provides it; if that call is missing or rejects (ChatGPT's WebMCP subset), they fall back to `window.confirm`. Chrome may pass `{ signal }` as the second `execute` argument.
+Tools are registered once on the top-level page with `document.modelContext.registerTool` (or `navigator.modelContext` if that is what the host injects). Registration waits if the API appears after first paint. Tools stay registered for the life of the page; HOLD and lock are enforced inside `execute`, so the agent never sees the tool list flicker. After a lock, `load_scenario` with `A` starts a fresh unlocked hourly board — the agent must not click A/B/C. Results use the MCP `{ content: [{ type: "text" }] }` shape. HOLD is a human gesture, not an agent tool. Agent-proposed text is marked `untrustedContentHint`. Commit, high-risk apply, and `request_release` confirm on the page. If the host wraps that confirm, LATCH uses the wrap. The same page dialog always finishes the ask. Chrome may pass `{ signal }` as the second `execute` argument.
 
 ## Author
 

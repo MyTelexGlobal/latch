@@ -38,6 +38,7 @@ import {
   SKINS,
   THEMES,
   ThemeGlyph,
+  useBoardConfirm,
   type BoardActions,
   type SkinId,
   type ThemeId,
@@ -70,6 +71,9 @@ export function App() {
   const hands = useMemo(() => listAgentHands(board), [board]);
   const writeCount = writableCardIds(board).length;
   const [available, setAvailable] = useState(() => webmcpAvailable());
+  const { confirm, layer: confirmLayer } = useBoardConfirm();
+  const confirmRef = useRef(confirm);
+  confirmRef.current = confirm;
 
   useEffect(() => {
     localStorage.setItem(SKIN_KEY, skin);
@@ -82,12 +86,14 @@ export function App() {
   useEffect(() => {
     const controller = new AbortController();
     void syncWebmcp(
-      { getBoard: () => boardRef.current, setBoard },
+      {
+        getBoard: () => boardRef.current,
+        setBoard,
+        confirm: (message) => confirmRef.current(message),
+      },
       controller.signal,
       () => setAvailable(true),
-    ).catch((error: unknown) => {
-      console.warn("WebMCP register failed", error);
-    });
+    ).catch(() => {});
     return () => controller.abort();
   }, []);
 
@@ -95,9 +101,12 @@ export function App() {
     start: () => setBoard(startScenario(board)),
     commit: () => {
       if (!board.started || board.committed) return;
-      if (window.confirm("Commit this deal and freeze the board?")) {
-        setBoard(commitDeal(board, "you"));
-      }
+      void confirm("Lock this deal and freeze the board?").then((ok) => {
+        if (!ok) return;
+        const current = boardRef.current;
+        if (!current.started || current.committed) return;
+        setBoard(commitDeal(current, "you"));
+      });
     },
     hold: (id) => setBoard(holdCard(board, id, "you")),
     release: (id) => setBoard(releaseCard(board, id, "you")),
@@ -196,6 +205,7 @@ export function App() {
         </div>
       </div>
       <ObjectDraftProvider>{body}</ObjectDraftProvider>
+      {confirmLayer}
     </div>
   );
 }
