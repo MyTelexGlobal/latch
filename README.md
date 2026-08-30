@@ -21,7 +21,7 @@ Live: [https://latch.aa-c41.workers.dev](https://latch.aa-c41.workers.dev)
 
 Human-only path: the board works with WebMCP off. HOLD still locks the card and shrinks the open count.
 
-The page remembers the last view and theme in `localStorage`. First visit opens **List**.
+The page remembers the last view and theme in `localStorage`. First visit opens **Side by side**.
 
 ## Run
 

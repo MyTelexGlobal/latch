@@ -45,13 +45,13 @@ import {
 import { Sheet } from "./skins/Sheet";
 import { listAgentHands, syncWebmcp, webmcpAvailable } from "./webmcp";
 
-const SKIN_KEY = "latch-skin";
+const SKIN_KEY = "latch-skin-v2";
 const THEME_KEY = "latch-theme";
 
 function readSkin(): SkinId {
   const saved = localStorage.getItem(SKIN_KEY);
   if (saved === "sheet" || saved === "console" || saved === "focus") return saved;
-  return "sheet";
+  return "console";
 }
 
 function readTheme(): ThemeId {
