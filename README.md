@@ -8,6 +8,8 @@ This is not a contract reviewer. Six stock terms sit on one page. **A / B / C** 
 
 The stop happens on the live page, while the agent is still acting. A side chat cannot revoke one card and leave the rest in the agent's hands.
 
+Live: [https://latch.aa-c41.workers.dev](https://latch.aa-c41.workers.dev)
+
 ## Judge test
 
 1. Open the live URL in the ChatGPT desktop in-app browser (GPT-5.6 Sol or Terra). Chrome with `chrome://flags/#enable-webmcp-testing` is the fallback.
