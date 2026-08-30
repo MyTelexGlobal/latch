@@ -1,10 +1,15 @@
 /**
- * LATCH — shared-authority deal board.
- * Submission for the OpenAI WebMCP Challenge (2026): https://webmcp.devpost.com/
- * Author: Yury Myshinskiy
- * Email: hackaton@telex.global
- * The page publishes live tools via document.modelContext.registerTool.
- * License: MIT
+ * Board state for LATCH.
+ *
+ * Pure functions, no I/O. The React tree and WebMCP `execute` handlers both
+ * apply these reducers. A hard reload always starts from scenario A: this
+ * module never reads storage. HOLD, veto, and commit live on the card or
+ * board; they are not encoded by registering or dropping tools.
+ *
+ * `loadScenario` is a judge/demo fixture. It rebuilds A/B/C and clears
+ * `committed`. It is not a production unlock of a signed contract.
+ *
+ * @author Yury Myshinskiy <hackaton@telex.global>
  */
 export type CardId = string;
 
@@ -16,11 +21,13 @@ export type Phase = "idle" | "act" | "held";
 
 export type Actor = "you" | "agent";
 
+/** Human objection. `cut` removes the term from the deal. */
 export type Veto = {
   cut: boolean;
   comment: string;
 };
 
+/** One stock term or a human-added opinion. */
 export type Card = {
   id: CardId;
   kind: CardKind;
@@ -40,6 +47,7 @@ export type Event = {
   text: string;
 };
 
+/** Live deal. `started` is true after `createIdleBoard` / `loadScenario`. */
 export type Board = {
   scenario: ScenarioId;
   phase: Phase;
@@ -91,6 +99,7 @@ function cloneCards(cards: Card[]): Card[] {
   }));
 }
 
+/** Seed boards. A is the cold-start and the post-lock demo reset. */
 export const SCENARIOS: Record<ScenarioId, Scenario> = {
   A: {
     id: "A",
@@ -250,6 +259,7 @@ function event(actor: Actor, text: string): Event {
   };
 }
 
+/** Fresh unlocked board for A (hourly), B (retainer, indemnity held), or C (rush). */
 export function loadScenario(id: ScenarioId): Board {
   const scene = SCENARIOS[id];
   const heldAll = scene.cards.length > 0 && scene.cards.every((card) => card.held);
@@ -264,6 +274,7 @@ export function loadScenario(id: ScenarioId): Board {
   };
 }
 
+/** Focus skin: prefer a held card, then a cut, then high-risk, then first. */
 export function signalCard(board: Board): CardId {
   const held = board.cards.find((card) => card.held);
   if (held) return held.id;
@@ -274,10 +285,12 @@ export function signalCard(board: Board): CardId {
   return board.cards[0]?.id ?? "rate";
 }
 
+/** First paint: scenario A, deal already live. */
 export function createIdleBoard(): Board {
   return loadScenario("A");
 }
 
+/** Human Start — same as loading A. Kept so older UI paths stay valid. */
 export function startScenario(_board: Board): Board {
   return loadScenario("A");
 }
@@ -287,6 +300,7 @@ function clip(text: string): string {
   return tight.length > 80 ? `${tight.slice(0, 77)}…` : tight;
 }
 
+/** Whole-board brief. No-op when committed. */
 export function setBrief(board: Board, brief: string, log: boolean): Board {
   if (board.committed) return board;
   const next = brief;
@@ -301,6 +315,7 @@ export function setBrief(board: Board, brief: string, log: boolean): Board {
   };
 }
 
+/** Binding note the agent must follow on the next read. */
 export function setCardNote(
   board: Board,
   id: CardId,
@@ -332,6 +347,7 @@ export function canAddOpinion(board: Board): boolean {
   return !board.committed && opinionCount(board) < MAX_OPINIONS;
 }
 
+/** Append a human term. Ids are unique strings so tool schemas stay open. */
 export function addOpinion(board: Board): { board: Board; id: CardId | null } {
   if (!canAddOpinion(board)) return { board, id: null };
   const n = opinionCount(board) + 1;
@@ -357,6 +373,7 @@ export function addOpinion(board: Board): { board: Board; id: CardId | null } {
   };
 }
 
+/** Remove an opinion card. Stock terms cannot be dropped. */
 export function dropOpinion(board: Board, id: CardId): Board {
   const card = getCard(board, id);
   if (!card || card.kind !== "opinion" || board.committed) return board;
@@ -367,6 +384,7 @@ export function dropOpinion(board: Board, id: CardId): Board {
   };
 }
 
+/** Rename an opinion (stock titles stay as seeded). */
 export function setCardTitle(
   board: Board,
   id: CardId,
@@ -388,6 +406,7 @@ export function setCardTitle(
   };
 }
 
+/** Human edit of card body. Distinct from an agent `applyChange`. */
 export function setCardBody(
   board: Board,
   id: CardId,
@@ -409,6 +428,7 @@ export function setCardBody(
   };
 }
 
+/** Reorder cards. `beforeId` null appends. */
 export function moveCard(
   board: Board,
   id: CardId,
@@ -432,10 +452,12 @@ export function moveCard(
   return { ...board, cards: next };
 }
 
+/** Lookup by id, including dynamic opinion ids. */
 export function getCard(board: Board, id: string): Card | undefined {
   return board.cards.find((card) => card.id === id);
 }
 
+/** Cards the agent may still rewrite: not held, not cut, board not locked. */
 export function writableCardIds(board: Board): CardId[] {
   if (!board.started || board.committed) return [];
   return board.cards
@@ -443,6 +465,7 @@ export function writableCardIds(board: Board): CardId[] {
     .map((card) => card.id);
 }
 
+/** Human-only latch. Clears pending text and any veto on that card. */
 export function holdCard(board: Board, id: CardId, actor: Actor): Board {
   const card = getCard(board, id);
   if (!card || card.held || board.committed) return board;
@@ -462,6 +485,7 @@ export function holdCard(board: Board, id: CardId, actor: Actor): Board {
   };
 }
 
+/** Lift HOLD after the human confirms (page dialog or Held · let go). */
 export function releaseCard(board: Board, id: CardId, actor: Actor): Board {
   const card = getCard(board, id);
   if (!card || !card.held || board.committed) return board;
@@ -479,6 +503,7 @@ export function releaseCard(board: Board, id: CardId, actor: Actor): Board {
   };
 }
 
+/** Object, optionally cut. A cut card is no longer writable. */
 export function objectCard(
   board: Board,
   id: CardId,
@@ -514,6 +539,7 @@ export function objectCard(
   };
 }
 
+/** Take back an objection. Does not lift HOLD. */
 export function clearObject(board: Board, id: CardId, actor: Actor): Board {
   const card = getCard(board, id);
   if (!card?.veto || board.committed) return board;
@@ -529,6 +555,7 @@ export function clearObject(board: Board, id: CardId, actor: Actor): Board {
   };
 }
 
+/** Stage agent text without applying it. */
 export function proposeChange(
   board: Board,
   id: CardId,
@@ -550,6 +577,7 @@ export function proposeChange(
   };
 }
 
+/** Replace `card.text`. Used by humans (pending apply) and by `apply_card_change`. */
 export function applyChange(
   board: Board,
   id: CardId,
@@ -571,6 +599,7 @@ export function applyChange(
   };
 }
 
+/** Drop a pending rewrite without changing `text`. */
 export function rejectPending(board: Board, id: CardId, actor: Actor): Board {
   const card = getCard(board, id);
   if (!card || !card.pending || board.committed) return board;
@@ -587,6 +616,7 @@ export function rejectPending(board: Board, id: CardId, actor: Actor): Board {
   };
 }
 
+/** Freeze every card. `loadScenario` is the demo reset after this. */
 export function commitDeal(board: Board, actor: Actor): Board {
   if (board.committed || !board.started) return board;
   return {
@@ -601,6 +631,7 @@ export function commitDeal(board: Board, actor: Actor): Board {
   };
 }
 
+/** Agent-facing projection: writable / held / cut plus binding notes. */
 export function boardSnapshot(board: Board) {
   const scene = SCENARIOS[board.scenario];
   return {

@@ -1,9 +1,7 @@
 /**
- * LATCH — shared-authority deal board.
- * Submission for the OpenAI WebMCP Challenge (2026): https://webmcp.devpost.com/
- * Author: Yury Myshinskiy
- * Email: hackaton@telex.global
- * License: MIT
+ * List skin. Same board and actions as Side by side and One at a time.
+ *
+ * @author Yury Myshinskiy <hackaton@telex.global>
  */
 import type { HTMLAttributes } from "react";
 import { canAddOpinion, SCENARIOS, type Board, type Card, type Veto } from "../board";

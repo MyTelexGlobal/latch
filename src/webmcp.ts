@@ -1,10 +1,19 @@
 /**
- * LATCH — shared-authority deal board.
- * Submission for the OpenAI WebMCP Challenge (2026): https://webmcp.devpost.com/
- * Author: Yury Myshinskiy
- * Email: hackaton@telex.global
- * Registers document.modelContext tools so a ChatGPT agent shares this board.
- * License: MIT
+ * WebMCP registration for LATCH.
+ *
+ * Tools are registered once on the top-level document and stay listed for the
+ * page lifetime. HOLD, cut, and commit are enforced inside `execute`, so the
+ * host never sees the inventory flicker.
+ *
+ * Consequential writes confirm on the page immediately. If the host exposes
+ * `requestUserInteraction`, LATCH offers it the same promise as a wrap. Execute
+ * settles when the human (or a test driver) clicks Confirm — not when the host
+ * wrap returns. That keeps automated runs from hanging on a wrap that never
+ * calls its callback.
+ *
+ * @author Yury Myshinskiy <hackaton@telex.global>
+ * @see https://webmcp.devpost.com/
+ * @see https://webmachinelearning.github.io/webmcp/
  */
 import {
   applyChange,
@@ -19,10 +28,11 @@ import {
   type ScenarioId,
 } from "./board";
 
+/** Live board accessors closed over by every tool `execute`. */
 export type HoldApi = {
   getBoard: () => Board;
   setBoard: (next: Board) => void;
-  confirm: (message: string) => Promise<boolean>;
+  confirm: (message: string, signal?: AbortSignal) => Promise<boolean>;
 };
 
 export type AgentHand = {
@@ -101,23 +111,37 @@ function toolError(message: string) {
   return { content: [{ type: "text" as const, text: message }], isError: true };
 }
 
+/**
+ * Open the page dialog first, then optionally notify the host.
+ *
+ * Awaiting `requestUserInteraction` is unsafe: some hosts advertise the method,
+ * never run the callback, and abort the tool on timeout. The visible Confirm
+ * button is the handler. A test driver should wait for it in parallel.
+ */
 async function askHuman(
   extra: ModelContextExecuteExtra | undefined,
-  confirm: (message: string) => Promise<boolean>,
+  confirm: (message: string, signal?: AbortSignal) => Promise<boolean>,
   message: string,
 ): Promise<boolean> {
   if (extra?.signal?.aborted) return false;
-  const onPage = () => confirm(message);
+
+  const decision = confirm(message, extra?.signal);
+
   if (typeof extra?.requestUserInteraction === "function") {
-    try {
-      return Boolean(await extra.requestUserInteraction(onPage));
-    } catch {
-      // Host handed control back. The page dialog completes the same ask.
-    }
+    void Promise.resolve(extra.requestUserInteraction(() => decision)).catch(
+      () => {
+        /* The page dialog already owns the answer. */
+      },
+    );
   }
-  return onPage();
+
+  return decision;
 }
 
+/**
+ * UI highlight of what the agent may still write. Not the registered tool set.
+ * Registration is stable; this list only drives "armed" affordances.
+ */
 export function listAgentHands(board: Board): AgentHand[] {
   const hands: AgentHand[] = [
     { name: "get_board_state", kind: "read", on: "board" },
@@ -153,6 +177,10 @@ export function listAgentHands(board: Board): AgentHand[] {
   return hands;
 }
 
+/**
+ * Late-bind `document.modelContext` / `navigator.modelContext` and register
+ * the seven tools once. Aborting `signal` unregisters them via the host.
+ */
 export async function syncWebmcp(
   api: HoldApi,
   signal: AbortSignal,

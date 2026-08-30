@@ -1,15 +1,13 @@
 /**
- * LATCH — shared-authority deal board.
- * Submission for the OpenAI WebMCP Challenge (2026): https://webmcp.devpost.com/
- * Author: Yury Myshinskiy
- * Email: hackaton@telex.global
- * License: MIT
+ * Shared chrome for the three skins: cards, HOLD/Object, scenario copies.
+ * Confirm lives in `src/confirm.tsx`. This file does not register tools.
+ *
+ * @author Yury Myshinskiy <hackaton@telex.global>
  */
 import {
   createContext,
   useContext,
   useEffect,
-  useCallback,
   useMemo,
   useRef,
   useState,
@@ -705,63 +703,6 @@ export function LinkLed({ available }: { available: boolean }) {
       title={available ? "Agent tools are live" : "This page publishes agent tools"}
     />
   );
-}
-
-type ConfirmPrompt = {
-  message: string;
-  resolve: (ok: boolean) => void;
-};
-
-export function useBoardConfirm() {
-  const [prompt, setPrompt] = useState<ConfirmPrompt | null>(null);
-
-  const confirm = useCallback((message: string) => {
-    return new Promise<boolean>((resolve) => {
-      setPrompt((current) => {
-        current?.resolve(false);
-        return { message, resolve };
-      });
-    });
-  }, []);
-
-  const answer = (ok: boolean) => {
-    setPrompt((current) => {
-      current?.resolve(ok);
-      return null;
-    });
-  };
-
-  useEffect(() => {
-    if (!prompt) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") answer(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [prompt]);
-
-  const layer = prompt ? (
-    <div
-      className="confirm-layer"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="latch-confirm-copy"
-    >
-      <div className="confirm-card">
-        <p id="latch-confirm-copy">{prompt.message}</p>
-        <div className="confirm-actions">
-          <button type="button" className="latch" onClick={() => answer(true)}>
-            Confirm
-          </button>
-          <button type="button" className="confirm-hold" onClick={() => answer(false)}>
-            Not now
-          </button>
-        </div>
-      </div>
-    </div>
-  ) : null;
-
-  return { confirm, layer };
 }
 
 export function PendingMove({

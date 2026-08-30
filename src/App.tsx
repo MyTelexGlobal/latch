@@ -1,10 +1,11 @@
 /**
- * LATCH — shared-authority deal board.
- * Submission for the OpenAI WebMCP Challenge (2026): https://webmcp.devpost.com/
- * Author: Yury Myshinskiy
- * Email: hackaton@telex.global
- * The page publishes live tools via document.modelContext.registerTool.
- * License: MIT
+ * Root shell: one board, three skins, one confirm layer, one WebMCP bind.
+ *
+ * Skin and theme persist. The deal does not — a reload is always scenario A.
+ * Tools register once (`[]` effect) and read `boardRef` so HOLD cannot churn
+ * the inventory. Confirm is a ref so `execute` always opens the current dialog.
+ *
+ * @author Yury Myshinskiy <hackaton@telex.global>
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -38,12 +39,12 @@ import {
   SKINS,
   THEMES,
   ThemeGlyph,
-  useBoardConfirm,
   type BoardActions,
   type SkinId,
   type ThemeId,
 } from "./skins/shared";
 import { Sheet } from "./skins/Sheet";
+import { useBoardConfirm } from "./confirm";
 import { listAgentHands, syncWebmcp, webmcpAvailable } from "./webmcp";
 
 const SKIN_KEY = "latch-skin-v2";
@@ -89,7 +90,7 @@ export function App() {
       {
         getBoard: () => boardRef.current,
         setBoard,
-        confirm: (message) => confirmRef.current(message),
+        confirm: (message, signal) => confirmRef.current(message, signal),
       },
       controller.signal,
       () => setAvailable(true),

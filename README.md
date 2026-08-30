@@ -27,7 +27,11 @@ Official hosts: ChatGPT desktop (GPT-5.6 Sol or Terra) with **Site tools**, or C
 9. Run `commit_deal`. Confirm on the page. The board locks.
 10. Run `load_scenario` with `A`. Rate returns to `$85`, six cards open.
 
+Consequential tools (`request_release`, high-risk `apply_card_change`, `commit_deal`) open an on-page dialog immediately. Click **Confirm** (`[data-testid="latch-confirm-yes"]`) while the tool call is still pending. Do not wait for a host HITL wrap — the button is the handler. The page also fires `latch:confirm-open` on `window`.
+
 Demo those tools through Site tools or the inspector. Object and Lock are human controls, not the tool proof.
+
+Architecture: [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 `load_scenario` is a **judge/demo fixture**. It reloads A, B, or C and clears `committed` so a locked board can be shown again. It is not a production unlock of a signed contract. The agent calls it instead of clicking A/B/C.
 
@@ -52,7 +56,7 @@ npm run build
 
 ## WebMCP notes
 
-Tools are registered once on the top-level page with `document.modelContext.registerTool` (or `navigator.modelContext` if that is what the host injects). Registration waits if the API appears after first paint. Tools stay registered for the life of the page; HOLD and lock are enforced inside `execute`, so the agent never sees the tool list flicker. After a lock, `load_scenario` with `A` starts a fresh unlocked hourly board — the agent must not click A/B/C. Results use the MCP `{ content: [{ type: "text" }] }` shape. HOLD is a human gesture, not an agent tool. Agent-proposed text is marked `untrustedContentHint`. Commit, high-risk apply, and `request_release` confirm on the page. If the host wraps that confirm, LATCH uses the wrap. The same page dialog always finishes the ask. Chrome may pass `{ signal }` as the second `execute` argument.
+Tools are registered once on the top-level page with `document.modelContext.registerTool` (or `navigator.modelContext` if that is what the host injects). Registration waits if the API appears after first paint. Tools stay registered for the life of the page; HOLD and lock are enforced inside `execute`, so the agent never sees the tool list flicker. After a lock, `load_scenario` with `A` starts a fresh unlocked hourly board — the agent must not click A/B/C. Results use the MCP `{ content: [{ type: "text" }] }` shape. HOLD is a human gesture, not an agent tool. Agent-proposed text is marked `untrustedContentHint`. Commit, high-risk apply, and `request_release` confirm on the page as soon as `execute` needs a decision. If the host exposes `requestUserInteraction`, LATCH offers it the same promise. Execute settles on the page click, not on the host wrap, so a test driver can click Confirm in parallel. Chrome may pass `{ signal }` as the second `execute` argument.
 
 ## Author
 
