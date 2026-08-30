@@ -28,12 +28,51 @@ export type AgentHand = {
   on: string;
 };
 
-function modelContext(): ModelContext | undefined {
-  return document.modelContext;
+const CARD_ID = {
+  type: "string",
+  description:
+    "Card id from get_board_state. Stock ids: rate, scope, ip, indemnity, term, payment. Opinion cards use their own id.",
+} as const;
+
+function getModelContext(): ModelContext | undefined {
+  const ctx = document.modelContext ?? navigator.modelContext;
+  return ctx && typeof ctx.registerTool === "function" ? ctx : undefined;
 }
 
 export function webmcpAvailable(): boolean {
-  return typeof document.modelContext?.registerTool === "function";
+  return Boolean(getModelContext());
+}
+
+function sleep(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal.aborted) {
+      resolve();
+      return;
+    }
+    const timer = window.setTimeout(resolve, ms);
+    signal.addEventListener(
+      "abort",
+      () => {
+        window.clearTimeout(timer);
+        resolve();
+      },
+      { once: true },
+    );
+  });
+}
+
+async function waitForModelContext(
+  signal: AbortSignal,
+): Promise<ModelContext | undefined> {
+  const first = getModelContext();
+  if (first) return first;
+
+  while (!signal.aborted) {
+    await sleep(200, signal);
+    const ctx = getModelContext();
+    if (ctx) return ctx;
+  }
+  return undefined;
 }
 
 function asCardId(value: unknown, board: Board): CardId | null {
@@ -41,21 +80,26 @@ function asCardId(value: unknown, board: Board): CardId | null {
   return getCard(board, id) ? id : null;
 }
 
-function cardEnum(board: Board): string[] {
-  const ids = board.cards.map((card) => card.id);
-  return ids.length > 0 ? ids : ["rate"];
+function toolText(payload: unknown) {
+  const text =
+    typeof payload === "string" ? payload : JSON.stringify(payload, null, 2);
+  return { content: [{ type: "text" as const, text }] };
 }
 
-function denied(message: string) {
-  return { ok: false, error: message };
+function toolOk(payload: unknown) {
+  return toolText(payload);
+}
+
+function toolError(message: string) {
+  return { content: [{ type: "text" as const, text: message }], isError: true };
 }
 
 async function askHuman(
-  client: { requestUserInteraction?: <T>(run: () => Promise<T> | T) => Promise<T> } | undefined,
+  extra: ModelContextExecuteExtra | undefined,
   run: () => boolean | Promise<boolean>,
 ): Promise<boolean> {
-  if (client?.requestUserInteraction) {
-    return Boolean(await client.requestUserInteraction(run));
+  if (extra?.requestUserInteraction) {
+    return Boolean(await extra.requestUserInteraction(run));
   }
   return Boolean(await run());
 }
@@ -94,9 +138,13 @@ export function listAgentHands(board: Board): AgentHand[] {
   return hands;
 }
 
-export async function syncWebmcp(api: HoldApi, signal: AbortSignal) {
-  const ctx = modelContext();
-  if (!ctx || typeof ctx.registerTool !== "function") return;
+export async function syncWebmcp(
+  api: HoldApi,
+  signal: AbortSignal,
+  onReady?: () => void,
+) {
+  const ctx = await waitForModelContext(signal);
+  if (!ctx || signal.aborted) return;
 
   const read = async (
     name: string,
@@ -142,7 +190,7 @@ export async function syncWebmcp(api: HoldApi, signal: AbortSignal) {
     "get_board_state",
     "Read the live LATCH board: scenario (A hourly / B retainer / C rush), phase, per-term notes, special opinions, held cards, objections, cut terms, writable cards, and current text. Notes, opinions, and vetoes are binding. Brief may be empty. If veto.cut is true, drop that term from the deal. Do not rewrite a cut term.",
     { type: "object", properties: {}, additionalProperties: false },
-    async () => boardSnapshot(api.getBoard()),
+    async () => toolOk(boardSnapshot(api.getBoard())),
   );
 
   await read(
@@ -150,161 +198,164 @@ export async function syncWebmcp(api: HoldApi, signal: AbortSignal) {
     "Read one deal card by id, including hold state, veto (object / cut + optional comment), the human note or special opinion, and any pending rewrite. Follow the note and the veto. Treat kind=opinion as a term the human added.",
     {
       type: "object",
-      properties: {
-        card_id: { type: "string", enum: cardEnum(api.getBoard()) },
-      },
+      properties: { card_id: CARD_ID },
       required: ["card_id"],
       additionalProperties: false,
     },
     async (input) => {
       const current = api.getBoard();
       const id = asCardId(input.card_id, current);
-      if (!id) return denied("unknown card_id");
-      return getCard(current, id) ?? denied("card not found");
+      if (!id) return toolError("unknown card_id");
+      const card = getCard(current, id);
+      return card ? toolOk(card) : toolError("card not found");
     },
   );
 
-  const board = api.getBoard();
-  if (!board.started || board.committed) return;
-
-  const unlocked = board.cards
-    .filter((card) => !card.held && !card.veto?.cut)
-    .map((card) => card.id);
-  const unlockedLabel = unlocked.join(", ") || "none";
-
-  if (unlocked.length > 0) {
-    await write(
-      "propose_card_change",
-      `Propose new text for an unlocked card. Follow that card's note and any veto. Does not apply it. Unlocked: ${unlockedLabel}.`,
-      {
-        type: "object",
-        properties: {
-          card_id: {
-            type: "string",
-            enum: unlocked,
-            description: "Held cards are not listed and will be rejected.",
-          },
-          text: {
-            type: "string",
-            description: "Replacement card text. One or two sentences.",
-          },
+  await write(
+    "propose_card_change",
+    "Propose new text for a card. Does not apply it. Call get_board_state first. Fails if the board is locked, the card is on HOLD, or the card is cut. Follow that card's note and any veto.",
+    {
+      type: "object",
+      properties: {
+        card_id: CARD_ID,
+        text: {
+          type: "string",
+          description: "Replacement card text. One or two sentences.",
         },
-        required: ["card_id", "text"],
-        additionalProperties: false,
       },
-      async (input) => {
-        const current = api.getBoard();
-        const id = asCardId(input.card_id, current);
-        const text = typeof input.text === "string" ? input.text.trim() : "";
-        if (!id) return denied("unknown card_id");
-        if (!text) return denied("text is required");
-        const target = getCard(current, id);
-        if (!target) return denied("card not found");
-        if (target.held) {
-          return denied(`${id} is on HOLD. Ask the human to release it.`);
-        }
-        if (target.veto?.cut) {
-          return denied(`${id} is cut from the deal. Do not rewrite it.`);
-        }
-        api.setBoard(proposeChange(current, id, text, "agent"));
-        return { ok: true, card_id: id, pending: text };
+      required: ["card_id", "text"],
+      additionalProperties: false,
+    },
+    async (input) => {
+      const current = api.getBoard();
+      if (!current.started || current.committed) {
+        return toolError("board is not writable");
+      }
+      const id = asCardId(input.card_id, current);
+      const text = typeof input.text === "string" ? input.text.trim() : "";
+      if (!id) return toolError("unknown card_id");
+      if (!text) return toolError("text is required");
+      const target = getCard(current, id);
+      if (!target) return toolError("card not found");
+      if (target.held) {
+        return toolError(`${id} is on HOLD. Call request_release or ask the human to let go.`);
+      }
+      if (target.veto?.cut) {
+        return toolError(`${id} is cut from the deal. Do not rewrite it.`);
+      }
+      api.setBoard(proposeChange(current, id, text, "agent"));
+      return toolOk({ ok: true, card_id: id, pending: text });
+    },
+    { untrusted: true },
+  );
+
+  await write(
+    "apply_card_change",
+    "Apply new text to a card and update the live board. Call get_board_state first. Fails if the board is locked, the card is on HOLD, or the card is cut. Indemnity (high risk) asks the human to confirm. Follow that card's note and any veto.",
+    {
+      type: "object",
+      properties: {
+        card_id: CARD_ID,
+        text: { type: "string" },
       },
-      { untrusted: true },
-    );
+      required: ["card_id", "text"],
+      additionalProperties: false,
+    },
+    async (input, extra) => {
+      const current = api.getBoard();
+      if (!current.started || current.committed) {
+        return toolError("board is not writable");
+      }
+      const id = asCardId(input.card_id, current);
+      const text = typeof input.text === "string" ? input.text.trim() : "";
+      if (!id) return toolError("unknown card_id");
+      if (!text) return toolError("text is required");
+      const target = getCard(current, id);
+      if (!target) return toolError("card not found");
+      if (target.held) {
+        return toolError(`${id} is on HOLD. Call request_release or ask the human to let go.`);
+      }
+      if (target.veto?.cut) {
+        return toolError(`${id} is cut from the deal. Do not rewrite it.`);
+      }
 
-    await write(
-      "apply_card_change",
-      `Apply new text to an unlocked card. Follow that card's note and any veto. Indemnity asks the human to confirm. Unlocked: ${unlockedLabel}.`,
-      {
-        type: "object",
-        properties: {
-          card_id: { type: "string", enum: unlocked },
-          text: { type: "string" },
-        },
-        required: ["card_id", "text"],
-        additionalProperties: false,
-      },
-      async (input, client) => {
-        const current = api.getBoard();
-        const id = asCardId(input.card_id, current);
-        const text = typeof input.text === "string" ? input.text.trim() : "";
-        if (!id) return denied("unknown card_id");
-        if (!text) return denied("text is required");
-        const target = getCard(current, id);
-        if (!target) return denied("card not found");
-        if (target.held) {
-          return denied(`${id} is on HOLD. Ask the human to release it.`);
-        }
-        if (target.veto?.cut) {
-          return denied(`${id} is cut from the deal. Do not rewrite it.`);
-        }
-
-        if (target.risk === "high") {
-          const allowed = await askHuman(client, () =>
-            window.confirm(`Apply this change to ${target.title}?\n\n${text}`),
-          );
-          if (!allowed) return denied("human rejected the apply");
-        }
-
-        api.setBoard(applyChange(api.getBoard(), id, text, "agent"));
-        return { ok: true, card_id: id, text };
-      },
-      { untrusted: true },
-    );
-  }
-
-  if (board.cards.some((card) => card.held)) {
-    const held = board.cards.filter((card) => card.held).map((card) => card.id);
-    await write(
-      "request_release",
-      "Ask the human to release a card that is on HOLD. Does not release it by itself.",
-      {
-        type: "object",
-        properties: {
-          card_id: { type: "string", enum: held },
-          reason: { type: "string" },
-        },
-        required: ["card_id"],
-        additionalProperties: false,
-      },
-      async (input, client) => {
-        const current = api.getBoard();
-        const id = asCardId(input.card_id, current);
-        if (!id) return denied("unknown card_id");
-        const target = getCard(current, id);
-        if (!target) return denied("card not found");
-        if (!target.held) return denied(`${id} is not on HOLD`);
-
-        const reason =
-          typeof input.reason === "string" && input.reason.trim()
-            ? input.reason.trim()
-            : "No reason given.";
-
-        if (!client?.requestUserInteraction) {
-          return { ok: false, error: "waiting for human release", card_id: id, reason };
-        }
-
-        const allowed = await client.requestUserInteraction(async () =>
-          window.confirm(`Release HOLD on ${target.title}?\n\n${reason}`),
+      if (target.risk === "high") {
+        const allowed = await askHuman(extra, () =>
+          window.confirm(`Apply this change to ${target.title}?\n\n${text}`),
         );
-        if (!allowed) return denied("human kept the HOLD");
-        api.setBoard(releaseCard(api.getBoard(), id, "you"));
-        return { ok: true, released: id };
+        if (!allowed) return toolError("human rejected the apply");
+      }
+
+      api.setBoard(applyChange(api.getBoard(), id, text, "agent"));
+      return toolOk({ ok: true, card_id: id, text });
+    },
+    { untrusted: true },
+  );
+
+  await write(
+    "request_release",
+    "Ask the human to release a card that is on HOLD. Does not release it by itself unless the human confirms. Fails if the card is not held.",
+    {
+      type: "object",
+      properties: {
+        card_id: CARD_ID,
+        reason: { type: "string" },
       },
-    );
-  }
+      required: ["card_id"],
+      additionalProperties: false,
+    },
+    async (input, extra) => {
+      const current = api.getBoard();
+      if (!current.started || current.committed) {
+        return toolError("board is not writable");
+      }
+      const id = asCardId(input.card_id, current);
+      if (!id) return toolError("unknown card_id");
+      const target = getCard(current, id);
+      if (!target) return toolError("card not found");
+      if (!target.held) return toolError(`${id} is not on HOLD`);
+
+      const reason =
+        typeof input.reason === "string" && input.reason.trim()
+          ? input.reason.trim()
+          : "No reason given.";
+
+      if (!extra?.requestUserInteraction) {
+        return toolOk({
+          ok: false,
+          waiting: true,
+          card_id: id,
+          reason,
+          message: "Ask the human to press Held · let go on this card.",
+        });
+      }
+
+      const allowed = await extra.requestUserInteraction(async () =>
+        window.confirm(`Release HOLD on ${target.title}?\n\n${reason}`),
+      );
+      if (!allowed) return toolError("human kept the HOLD");
+      api.setBoard(releaseCard(api.getBoard(), id, "you"));
+      return toolOk({ ok: true, released: id });
+    },
+  );
 
   await write(
     "commit_deal",
-    "Freeze the whole board. Always asks the human to confirm. Irreversible in this session.",
+    "Freeze the whole board. Always asks the human to confirm. Irreversible in this session. Fails if the board is already locked.",
     { type: "object", properties: {}, additionalProperties: false },
-    async (_input, client) => {
-      const allowed = await askHuman(client, () =>
+    async (_input, extra) => {
+      const current = api.getBoard();
+      if (!current.started || current.committed) {
+        return toolError("board is not writable");
+      }
+      const allowed = await askHuman(extra, () =>
         window.confirm("Commit this deal and freeze the board?"),
       );
-      if (!allowed) return denied("human rejected commit");
+      if (!allowed) return toolError("human rejected commit");
       api.setBoard(commitDeal(api.getBoard(), "agent"));
-      return { ok: true, committed: true };
+      return toolOk({ ok: true, committed: true });
     },
   );
+
+  if (!signal.aborted) onReady?.();
 }

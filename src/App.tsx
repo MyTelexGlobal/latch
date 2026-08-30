@@ -69,7 +69,7 @@ export function App() {
 
   const hands = useMemo(() => listAgentHands(board), [board]);
   const writeCount = writableCardIds(board).length;
-  const available = webmcpAvailable();
+  const [available, setAvailable] = useState(() => webmcpAvailable());
 
   useEffect(() => {
     localStorage.setItem(SKIN_KEY, skin);
@@ -84,16 +84,12 @@ export function App() {
     void syncWebmcp(
       { getBoard: () => boardRef.current, setBoard },
       controller.signal,
+      () => setAvailable(true),
     ).catch((error: unknown) => {
       console.warn("WebMCP register failed", error);
     });
     return () => controller.abort();
-  }, [
-    board.started,
-    board.committed,
-    board.scenario,
-    board.cards.map((card) => `${card.id}:${card.held}:${card.veto?.cut ? "cut" : ""}`).join("|"),
-  ]);
+  }, []);
 
   const actions: BoardActions = {
     start: () => setBoard(startScenario(board)),

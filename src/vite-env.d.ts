@@ -9,8 +9,9 @@
 
 type HoldToolInput = Record<string, unknown>;
 
-interface ModelContextClient {
-  requestUserInteraction<T>(run: () => Promise<T> | T): Promise<T>;
+interface ModelContextExecuteExtra {
+  signal?: AbortSignal;
+  requestUserInteraction?: <T>(run: () => Promise<T> | T) => Promise<T>;
 }
 
 interface ModelContextTool {
@@ -23,7 +24,7 @@ interface ModelContextTool {
   };
   execute: (
     input: HoldToolInput,
-    client?: ModelContextClient,
+    extra?: ModelContextExecuteExtra,
   ) => Promise<unknown>;
 }
 
@@ -33,8 +34,14 @@ interface ModelContext {
     options?: { signal?: AbortSignal },
   ): Promise<void>;
   getTools?: () => Promise<unknown[]>;
+  addEventListener?: (type: string, listener: () => void) => void;
+  removeEventListener?: (type: string, listener: () => void) => void;
 }
 
 interface Document {
+  modelContext?: ModelContext;
+}
+
+interface Navigator {
   modelContext?: ModelContext;
 }
