@@ -608,6 +608,10 @@ export function boardSnapshot(board: Board) {
     scene: scene?.name ?? board.scenario,
     phase: board.phase,
     committed: board.committed,
+    next:
+      board.committed
+        ? "Board is locked. Call load_scenario with A for a fresh unlocked hourly deal."
+        : "Board is live. Tighten cards with apply_card_change.",
     brief: board.brief,
     writable: writableCardIds(board),
     held: board.cards.filter((card) => card.held).map((card) => card.id),

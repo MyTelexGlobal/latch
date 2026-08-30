@@ -36,7 +36,7 @@ npm run build
 
 ## WebMCP notes
 
-Tools are registered once on the top-level page with `document.modelContext.registerTool` (or `navigator.modelContext` if that is what the host injects). Registration waits if the API appears after first paint. Tools stay registered for the life of the page; HOLD and lock are enforced inside `execute`, so the agent never sees the tool list flicker. Results use the MCP `{ content: [{ type: "text" }] }` shape. HOLD is a human gesture, not an agent tool. Agent-proposed text is marked `untrustedContentHint`. Commit and high-risk apply always ask the human; they use `requestUserInteraction` when the client provides it, and `{ signal }` when Chrome passes that instead.
+Tools are registered once on the top-level page with `document.modelContext.registerTool` (or `navigator.modelContext` if that is what the host injects). Registration waits if the API appears after first paint. Tools stay registered for the life of the page; HOLD and lock are enforced inside `execute`, so the agent never sees the tool list flicker. After a lock, `load_scenario` with `A` starts a fresh unlocked hourly board — the agent must not click A/B/C. Results use the MCP `{ content: [{ type: "text" }] }` shape. HOLD is a human gesture, not an agent tool. Agent-proposed text is marked `untrustedContentHint`. Commit and high-risk apply always ask the human; they use `requestUserInteraction` when the client provides it, and `{ signal }` when Chrome passes that instead.
 
 ## Author
 

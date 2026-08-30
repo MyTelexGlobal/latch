@@ -11,10 +11,12 @@ import {
   boardSnapshot,
   commitDeal,
   getCard,
+  loadScenario,
   proposeChange,
   releaseCard,
   type Board,
   type CardId,
+  type ScenarioId,
 } from "./board";
 
 export type HoldApi = {
@@ -75,6 +77,10 @@ async function waitForModelContext(
   return undefined;
 }
 
+function asScenarioId(value: unknown): ScenarioId | null {
+  return value === "A" || value === "B" || value === "C" ? value : null;
+}
+
 function asCardId(value: unknown, board: Board): CardId | null {
   const id = typeof value === "string" ? value : "";
   return getCard(board, id) ? id : null;
@@ -110,6 +116,7 @@ export function listAgentHands(board: Board): AgentHand[] {
     { name: "inspect_card", kind: "read", on: "any card" },
   ];
 
+  hands.push({ name: "load_scenario", kind: "write", on: "board" });
   if (!board.started || board.committed) return hands;
 
   for (const card of board.cards) {
@@ -188,7 +195,7 @@ export async function syncWebmcp(
 
   await read(
     "get_board_state",
-    "Read the live LATCH board: scenario (A hourly / B retainer / C rush), phase, per-term notes, special opinions, held cards, objections, cut terms, writable cards, and current text. Notes, opinions, and vetoes are binding. Brief may be empty. If veto.cut is true, drop that term from the deal. Do not rewrite a cut term.",
+    "Read the live LATCH board: scenario (A hourly / B retainer / C rush), phase, committed, per-term notes, special opinions, held cards, objections, cut terms, writable cards, and current text. Notes, opinions, and vetoes are binding. If committed is true the board is locked — call load_scenario with A for a fresh unlocked hourly board. Do not click A/B/C. If veto.cut is true, drop that term from the deal.",
     { type: "object", properties: {}, additionalProperties: false },
     async () => toolOk(boardSnapshot(api.getBoard())),
   );
@@ -229,7 +236,7 @@ export async function syncWebmcp(
     async (input) => {
       const current = api.getBoard();
       if (!current.started || current.committed) {
-        return toolError("board is not writable");
+        return toolError("board is locked. Call load_scenario with A for a fresh unlocked hourly board.");
       }
       const id = asCardId(input.card_id, current);
       const text = typeof input.text === "string" ? input.text.trim() : "";
@@ -264,7 +271,7 @@ export async function syncWebmcp(
     async (input, extra) => {
       const current = api.getBoard();
       if (!current.started || current.committed) {
-        return toolError("board is not writable");
+        return toolError("board is locked. Call load_scenario with A for a fresh unlocked hourly board.");
       }
       const id = asCardId(input.card_id, current);
       const text = typeof input.text === "string" ? input.text.trim() : "";
@@ -307,7 +314,7 @@ export async function syncWebmcp(
     async (input, extra) => {
       const current = api.getBoard();
       if (!current.started || current.committed) {
-        return toolError("board is not writable");
+        return toolError("board is locked. Call load_scenario with A for a fresh unlocked hourly board.");
       }
       const id = asCardId(input.card_id, current);
       if (!id) return toolError("unknown card_id");
@@ -346,7 +353,7 @@ export async function syncWebmcp(
     async (_input, extra) => {
       const current = api.getBoard();
       if (!current.started || current.committed) {
-        return toolError("board is not writable");
+        return toolError("board is already locked. Call load_scenario with A to start a new deal.");
       }
       const allowed = await askHuman(extra, () =>
         window.confirm("Commit this deal and freeze the board?"),
@@ -354,6 +361,35 @@ export async function syncWebmcp(
       if (!allowed) return toolError("human rejected commit");
       api.setBoard(commitDeal(api.getBoard(), "agent"));
       return toolOk({ ok: true, committed: true });
+    },
+  );
+
+  await write(
+    "load_scenario",
+    "Replace the board with a fresh unlocked deal. Use A after a locked board (hourly, 6 open). B is a retainer with indemnity already held. C is a rush with payment cut. This is the unlock. Do not click A/B/C on the page.",
+    {
+      type: "object",
+      properties: {
+        scenario: {
+          type: "string",
+          enum: ["A", "B", "C"],
+          description: "A hourly unlock. B retainer, indemnity held. C rush, payment cut.",
+        },
+      },
+      required: ["scenario"],
+      additionalProperties: false,
+    },
+    async (input) => {
+      const id = asScenarioId(input.scenario);
+      if (!id) return toolError("scenario must be A, B, or C");
+      const next = loadScenario(id);
+      api.setBoard(next);
+      return toolOk({
+        ok: true,
+        scenario: id,
+        committed: false,
+        message: `Loaded ${id}. Board is unlocked.`,
+      });
     },
   );
 
