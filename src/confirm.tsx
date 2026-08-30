@@ -11,6 +11,8 @@
  * `latch:confirm-open` / `latch:confirm-close` on `window`.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
+import { canOpenConfirm } from "./authority";
 
 /** Stable selectors for Chrome / Site-tools test drivers. */
 export const CONFIRM_ROOT = "latch-confirm";
@@ -60,15 +62,27 @@ export function useBoardConfirm() {
       };
 
       const onAbort = () => {
-        setPrompt((current) => (current?.resolve === finish ? null : current));
         finish(false);
+        flushSync(() => {
+          setPrompt((current) => (current?.resolve === finish ? null : current));
+        });
       };
 
       signal?.addEventListener("abort", onAbort, { once: true });
 
-      setPrompt((current) => {
-        current?.resolve(false);
-        return { message, resolve: finish };
+      // Paint before execute yields. A late setState after abort must not reopen.
+      flushSync(() => {
+        if (!canOpenConfirm(settled, Boolean(signal?.aborted))) {
+          setPrompt((current) => (current?.resolve === finish ? null : current));
+          return;
+        }
+        setPrompt((current) => {
+          if (!canOpenConfirm(settled, Boolean(signal?.aborted))) {
+            return current?.resolve === finish ? null : current;
+          }
+          current?.resolve(false);
+          return { message, resolve: finish };
+        });
       });
     });
   }, []);

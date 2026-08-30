@@ -19,6 +19,7 @@ import {
   type ReactNode,
   type TextareaHTMLAttributes,
 } from "react";
+import { describeAuthority } from "../authority";
 import {
   SCENARIO_LIST,
   type Board,
@@ -718,26 +719,14 @@ export function OpenMark({
  */
 export function AuthorityStrip({ board }: { board: Board }) {
   if (!board.started) return null;
-  if (board.committed) {
-    return (
-      <p className="authority-strip is-locked" data-authority="locked" role="status">
-        Board locked. The agent cannot write.
-      </p>
-    );
-  }
-  const held = board.cards.filter((card) => card.held);
-  const open = board.cards.filter((card) => !card.held && !card.veto?.cut);
-  if (held.length === 0) {
-    return (
-      <p className="authority-strip is-open" data-authority="open" role="status">
-        Agent may write every term. HOLD one card to revoke that grant only.
-      </p>
-    );
-  }
+  const line = describeAuthority(board);
   return (
-    <p className="authority-strip is-split" data-authority="split" role="status">
-      <b>{held.map((card) => card.title).join(", ")}</b> latched.
-      Agent still writes {open.map((card) => card.title).join(", ") || "nothing"}.
+    <p
+      className={`authority-strip is-${line.kind}`}
+      data-authority={line.kind}
+      role="status"
+    >
+      {line.text}
     </p>
   );
 }
