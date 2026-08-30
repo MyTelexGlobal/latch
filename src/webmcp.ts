@@ -104,8 +104,14 @@ async function askHuman(
   extra: ModelContextExecuteExtra | undefined,
   run: () => boolean | Promise<boolean>,
 ): Promise<boolean> {
+  if (extra?.signal?.aborted) return false;
   if (extra?.requestUserInteraction) {
-    return Boolean(await extra.requestUserInteraction(run));
+    try {
+      return Boolean(await extra.requestUserInteraction(run));
+    } catch {
+      // ChatGPT / some shims advertise HITL and then reject
+      // ("requestUserInteraction is not supported"). Confirm locally.
+    }
   }
   return Boolean(await run());
 }
@@ -290,7 +296,10 @@ export async function syncWebmcp(
         const allowed = await askHuman(extra, () =>
           window.confirm(`Apply this change to ${target.title}?\n\n${text}`),
         );
-        if (!allowed) return toolError("human rejected the apply");
+        if (!allowed) {
+          if (extra?.signal?.aborted) return toolError("cancelled");
+          return toolError("human rejected the apply");
+        }
       }
 
       api.setBoard(applyChange(api.getBoard(), id, text, "agent"));
@@ -327,20 +336,13 @@ export async function syncWebmcp(
           ? input.reason.trim()
           : "No reason given.";
 
-      if (!extra?.requestUserInteraction) {
-        return toolOk({
-          ok: false,
-          waiting: true,
-          card_id: id,
-          reason,
-          message: "Ask the human to press Held · let go on this card.",
-        });
-      }
-
-      const allowed = await extra.requestUserInteraction(async () =>
+      const allowed = await askHuman(extra, () =>
         window.confirm(`Release HOLD on ${target.title}?\n\n${reason}`),
       );
-      if (!allowed) return toolError("human kept the HOLD");
+      if (!allowed) {
+        if (extra?.signal?.aborted) return toolError("cancelled");
+        return toolError("human kept the HOLD");
+      }
       api.setBoard(releaseCard(api.getBoard(), id, "you"));
       return toolOk({ ok: true, released: id });
     },
@@ -358,7 +360,10 @@ export async function syncWebmcp(
       const allowed = await askHuman(extra, () =>
         window.confirm("Commit this deal and freeze the board?"),
       );
-      if (!allowed) return toolError("human rejected commit");
+      if (!allowed) {
+        if (extra?.signal?.aborted) return toolError("cancelled");
+        return toolError("human rejected commit");
+      }
       api.setBoard(commitDeal(api.getBoard(), "agent"));
       return toolOk({ ok: true, committed: true });
     },
