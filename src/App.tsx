@@ -32,6 +32,7 @@ import {
 import { Console } from "./skins/Console";
 import { Focus } from "./skins/Focus";
 import {
+  AuthorityStrip,
   DealButtons,
   OpenMark,
   ObjectDraftProvider,
@@ -172,7 +173,7 @@ export function App() {
   return (
     <div className="app" data-skin={skin} data-theme={theme}>
       <div className="switcher">
-          <div className="view-tabs" role="tablist" aria-label="Attention mode">
+        <div className="view-tabs" role="tablist" aria-label="Attention mode">
           {SKINS.map((item) => (
             <button
               key={item.id}
@@ -195,21 +196,23 @@ export function App() {
           <OpenMark board={board} writeCount={writeCount} />
           <DealButtons board={board} actions={actions} />
           <div className="theme-tabs" role="group" aria-label="Theme">
-          {THEMES.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              aria-label={item.label}
-              aria-pressed={theme === item.id}
-              title={item.label}
-              className={theme === item.id ? "is-on" : ""}
-              onClick={() => setTheme(item.id)}
-            >
-              <ThemeGlyph id={item.id} />
-            </button>
-          ))}
+            {THEMES.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                aria-label={item.label}
+                aria-pressed={theme === item.id}
+                title={item.label}
+                className={theme === item.id ? "is-on" : ""}
+                onClick={() => setTheme(item.id)}
+              >
+                <ThemeGlyph id={item.id} />
+              </button>
+            ))}
           </div>
         </div>
+        {/* Names who may still write. Updates on HOLD without touching tools. */}
+        <AuthorityStrip board={board} />
       </div>
       <ObjectDraftProvider>{body}</ObjectDraftProvider>
       {confirmLayer}

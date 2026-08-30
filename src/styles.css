@@ -140,6 +140,7 @@ html:has(.app[data-theme="night"]) #root {
   top: 0;
   z-index: 5;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -180,6 +181,34 @@ html:has(.app[data-theme="night"]) #root {
 .switcher .open-mark b {
   color: var(--cyan);
   font-weight: 500;
+}
+
+/* Full-width grant line. `is-split` is the HOLD beat for the video. */
+.authority-strip {
+  flex: 1 1 100%;
+  margin: 0;
+  padding: 2px 0 0;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 550;
+  line-height: 1.35;
+  color: var(--mute);
+}
+
+.authority-strip.is-open {
+  color: var(--ink);
+}
+
+.authority-strip.is-split {
+  color: var(--held);
+}
+
+.authority-strip.is-locked {
+  color: var(--cut);
+}
+
+.authority-strip b {
+  font-weight: 750;
 }
 
 .theme-tabs button {

@@ -124,7 +124,10 @@ export function Focus({
           card.kind === "opinion" ? "is-opinion" : "",
         ].join(" ")}
       >
-        <p className={armed ? "dot on" : "dot"} />
+        <p
+          className={armed ? "dot on" : "dot"}
+          title={armed ? "Agent may write" : "Latched — write refused"}
+        />
         {card.kind === "opinion" ? (
           <p className="kicker">{rankLabel(index, "Opinion")}</p>
         ) : (

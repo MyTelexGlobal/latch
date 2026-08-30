@@ -39,7 +39,7 @@ Official hosts: ChatGPT desktop (GPT-5.6 Sol or Terra) with **Site tools**, or C
 2. Show the seven tools: `get_board_state`, `inspect_card`, `propose_card_change`, `apply_card_change`, `request_release`, `commit_deal`, `load_scenario` (Site tools, or DevTools → Application → WebMCP).
 3. Run `get_board_state`. Read `writable`, `held`, `committed`, and the Indemnity note.
 4. Run `apply_card_change` with `card_id` `rate` and text `$99 / hour. Weekly invoice. No cap.` The Rate card text must change. Do not click the card.
-5. Press **Hold this** on Indemnity. Open count becomes 5. All seven tools stay listed.
+5. Press **Hold this** on Indemnity. The authority strip reads that Indemnity is latched and the other terms stay writable. All seven tools stay listed.
 6. Run `apply_card_change` on `indemnity`. Expect `isError: true` and unchanged text.
 7. Run `request_release` on `indemnity`. Confirm on the page. HOLD lifts.
 8. Run `apply_card_change` on `indemnity` with `Mutual only. Cap at fees.` Confirm on the page. The card text updates.
@@ -50,7 +50,7 @@ Consequential tools (`request_release`, high-risk `apply_card_change`, `commit_d
 
 Demo those tools through Site tools or the inspector. Object and Lock are human controls, not the tool proof.
 
-Architecture: [ARCHITECTURE.md](./ARCHITECTURE.md). Devpost paste: [DEVPOST.md](./DEVPOST.md).
+Architecture: [ARCHITECTURE.md](./ARCHITECTURE.md). Devpost paste: [DEVPOST.md](./DEVPOST.md). Narration: [VIDEO.md](./VIDEO.md).
 
 `load_scenario` is a **judge/demo fixture**. It reloads A, B, or C and clears `committed` so a locked board can be shown again. It is not a production unlock of a signed contract. The agent calls it instead of clicking A/B/C.
 
@@ -71,6 +71,10 @@ npm run dev
 
 ```bash
 npm run build
+```
+
+```bash
+npm test
 ```
 
 ## WebMCP notes

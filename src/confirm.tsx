@@ -12,6 +12,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 
+/** Stable selectors for Chrome / Site-tools test drivers. */
 export const CONFIRM_ROOT = "latch-confirm";
 export const CONFIRM_YES = "latch-confirm-yes";
 export const CONFIRM_NO = "latch-confirm-no";
@@ -30,6 +31,7 @@ type ConfirmPrompt = {
   resolve: (ok: boolean) => void;
 };
 
+/** Parallel waiter: `window.addEventListener("latch:confirm-open", ...)`. */
 function emit(name: "latch:confirm-open" | "latch:confirm-close", message: string) {
   window.dispatchEvent(new CustomEvent<LatchConfirmDetail>(name, { detail: { message } }));
 }

@@ -162,7 +162,10 @@ function Channel({
     >
       <header>
         <DragGrip locked={committed} {...grip} />
-        <span className={armed ? "led on" : "led"} />
+        <span
+          className={armed ? "led on" : "led"}
+          title={armed ? "Agent may write" : "Latched — write refused"}
+        />
         <h2>{card.kind === "opinion" ? `${index + 1}.` : rankLabel(index, card.title)}</h2>
         {card.kind === "opinion" ? (
           <DropButton disabled={committed} onDrop={onDrop} />

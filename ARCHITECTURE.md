@@ -16,6 +16,7 @@ The stop has to happen on the open tab, on the same objects the human sees. A re
 | `src/webmcp.ts` | Late-bind `modelContext`, register seven tools once, enforce HOLD inside `execute`. |
 | `src/confirm.tsx` | On-page Confirm / Not now. Source of truth for consequential writes. |
 | `src/App.tsx` | Skin, theme, board ref, one registration effect. |
+| `src/hitl.ts` | Abort / host-wrap / post-confirm guards. Covered by `npm test`. |
 | `src/skins/*` | Three attention modes (audit / table / latch) over one board. |
 | `src/vite-env.d.ts` | Host `ModelContext` types. |
 

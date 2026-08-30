@@ -168,7 +168,7 @@ function SheetLine({
       <DragGrip locked={committed} {...grip} />
       <span
         className={armed ? "dot on" : "dot"}
-        title={armed ? "Open" : "Held"}
+        title={armed ? "Agent may write" : "Latched — write refused"}
       />
       <div className="line-body">
         <div className="line-top">

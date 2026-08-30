@@ -33,6 +33,7 @@ export type SkinId = "sheet" | "console" | "focus";
 
 export type ThemeId = "day" | "night";
 
+/** Attention modes, not themes. Day/night is `THEMES`. */
 export const SKINS: { id: SkinId; label: string; hint: string }[] = [
   {
     id: "sheet",
@@ -692,6 +693,7 @@ export function HoldLatch({
   );
 }
 
+/** Compact open-count for the top bar. The sentence lives in `AuthorityStrip`. */
 export function OpenMark({
   board,
   writeCount,
@@ -705,6 +707,38 @@ export function OpenMark({
     <span className="open-mark">
       <b>{writeCount}</b> open
     </span>
+  );
+}
+
+/**
+ * Full-width authority line under the tabs.
+ *
+ * This is the Creativity beat: after HOLD the sentence names the latched
+ * term and the terms the agent still owns. A count alone looks like chrome.
+ */
+export function AuthorityStrip({ board }: { board: Board }) {
+  if (!board.started) return null;
+  if (board.committed) {
+    return (
+      <p className="authority-strip is-locked" data-authority="locked" role="status">
+        Board locked. The agent cannot write.
+      </p>
+    );
+  }
+  const held = board.cards.filter((card) => card.held);
+  const open = board.cards.filter((card) => !card.held && !card.veto?.cut);
+  if (held.length === 0) {
+    return (
+      <p className="authority-strip is-open" data-authority="open" role="status">
+        Agent may write every term. HOLD one card to revoke that grant only.
+      </p>
+    );
+  }
+  return (
+    <p className="authority-strip is-split" data-authority="split" role="status">
+      <b>{held.map((card) => card.title).join(", ")}</b> latched.
+      Agent still writes {open.map((card) => card.title).join(", ") || "nothing"}.
+    </p>
   );
 }
 

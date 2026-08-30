@@ -12,7 +12,7 @@ Negotiating a deal is not a one-shot generation. A freelancer and a client need 
 
 ## How it creates a better user experience
 
-The board is live on load. Scenario A is an hourly deal with six open cards. The human stays on one page and chooses an attention mode: List to audit every grant, Side by side to watch the whole table while the agent writes, One at a time to isolate the contested term. Those are not themes. They are three jobs over one board. HOLD shrinks the open count. Confirm / Not now appears on the page the moment a consequential tool needs a decision. Execute waits for that click. High-risk indemnity and commit use the same gesture. The page works when WebMCP is off: HOLD still latches the card. A reload returns to A and $85. Skin and theme persist; the deal does not.
+The board is live on load. Scenario A is an hourly deal with six open cards. A status line states who may still write. After HOLD it names the latched term and lists the cards the agent still owns. The human stays on one page and chooses an attention mode: List to audit every grant, Side by side to watch the whole table while the agent writes, One at a time to isolate the contested term. Those are not themes. They are three jobs over one board. HOLD shrinks the open count. Confirm / Not now appears on the page the moment a consequential tool needs a decision. Execute waits for that click. High-risk indemnity and commit use the same gesture. The page works when WebMCP is off: HOLD still latches the card. A reload returns to A and $85. Skin and theme persist; the deal does not.
 
 ## What people and agents can do together that was difficult or impossible before
 

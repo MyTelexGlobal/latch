@@ -27,6 +27,13 @@ import {
   type CardId,
   type ScenarioId,
 } from "./board";
+import {
+  aborted,
+  applyBlockReason,
+  commitBlockReason,
+  offerHostInteraction,
+  releaseBlockReason,
+} from "./hitl";
 
 /** Live board accessors closed over by every tool `execute`. */
 export type HoldApi = {
@@ -35,6 +42,7 @@ export type HoldApi = {
   confirm: (message: string, signal?: AbortSignal) => Promise<boolean>;
 };
 
+/** UI-only: which writes look "armed". Not the registered inventory. */
 export type AgentHand = {
   name: string;
   kind: "read" | "write";
@@ -47,15 +55,18 @@ const CARD_ID = {
     "Card id from get_board_state. Stock ids: rate, scope, ip, indemnity, term, payment. Opinion cards use their own id.",
 } as const;
 
+/** Chrome injects `document.modelContext`; some hosts use `navigator`. */
 function getModelContext(): ModelContext | undefined {
   const ctx = document.modelContext ?? navigator.modelContext;
   return ctx && typeof ctx.registerTool === "function" ? ctx : undefined;
 }
 
+/** True once the host has attached `registerTool` on this document. */
 export function webmcpAvailable(): boolean {
   return Boolean(getModelContext());
 }
 
+/** Interruptible poll delay used while waiting for a late `modelContext`. */
 function sleep(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
     if (signal.aborted) {
@@ -74,6 +85,7 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
+/** First paint may beat the host inject. Poll until `registerTool` exists. */
 async function waitForModelContext(
   signal: AbortSignal,
 ): Promise<ModelContext | undefined> {
@@ -88,15 +100,18 @@ async function waitForModelContext(
   return undefined;
 }
 
+/** Narrow tool input to A / B / C. Anything else is an agent error. */
 function asScenarioId(value: unknown): ScenarioId | null {
   return value === "A" || value === "B" || value === "C" ? value : null;
 }
 
+/** Accept stock ids and live opinion ids. Reject unknown strings. */
 function asCardId(value: unknown, board: Board): CardId | null {
   const id = typeof value === "string" ? value : "";
   return getCard(board, id) ? id : null;
 }
 
+/** MCP text result. Objects are pretty-printed so an inspector can read them. */
 function toolText(payload: unknown) {
   const text =
     typeof payload === "string" ? payload : JSON.stringify(payload, null, 2);
@@ -107,6 +122,7 @@ function toolOk(payload: unknown) {
   return toolText(payload);
 }
 
+/** Same shape as success, with `isError` so the agent must not treat it as data. */
 function toolError(message: string) {
   return { content: [{ type: "text" as const, text: message }], isError: true };
 }
@@ -128,22 +144,8 @@ async function askHuman(
 
   const decision = confirm(message, extra?.signal);
 
-  const wrap = extra?.requestUserInteraction;
-  if (typeof wrap === "function") {
-    try {
-      void Promise.resolve(wrap(() => decision)).catch(() => {
-        /* Host wrap settled later. The page click already owns the answer. */
-      });
-    } catch {
-      /* Sync throw from a subset host. The page dialog stays up. */
-    }
-  }
-
+  offerHostInteraction(extra, decision);
   return decision;
-}
-
-function aborted(extra?: ModelContextExecuteExtra) {
-  return Boolean(extra?.signal?.aborted);
 }
 
 /**
@@ -197,6 +199,7 @@ export async function syncWebmcp(
   const ctx = await waitForModelContext(signal);
   if (!ctx || signal.aborted) return;
 
+  /** Register a read-only tool. `readOnlyHint` is the host-facing annotation. */
   const read = async (
     name: string,
     description: string,
@@ -215,6 +218,7 @@ export async function syncWebmcp(
     );
   };
 
+  /** Register a write tool. Agent-authored text sets `untrustedContentHint`. */
   const write = async (
     name: string,
     description: string,
@@ -342,18 +346,9 @@ export async function syncWebmcp(
         }
       }
 
-      if (aborted(extra)) return toolError("cancelled");
       const latest = api.getBoard();
-      if (!latest.started || latest.committed) {
-        return toolError("board is locked. Call load_scenario with A for a fresh unlocked hourly board.");
-      }
-      const live = getCard(latest, id);
-      if (!live || live.held) {
-        return toolError(`${id} is on HOLD. Call request_release or ask the human to let go.`);
-      }
-      if (live.veto?.cut) {
-        return toolError(`${id} is cut from the deal. Do not rewrite it.`);
-      }
+      const blocked = applyBlockReason(extra, latest, getCard(latest, id), id);
+      if (blocked) return toolError(blocked);
       api.setBoard(applyChange(latest, id, text, "agent"));
       return toolOk({ ok: true, card_id: id, text });
     },
@@ -397,13 +392,9 @@ export async function syncWebmcp(
         if (aborted(extra)) return toolError("cancelled");
         return toolError("human kept the HOLD");
       }
-      if (aborted(extra)) return toolError("cancelled");
       const latest = api.getBoard();
-      if (!latest.started || latest.committed) {
-        return toolError("board is locked. Call load_scenario with A for a fresh unlocked hourly board.");
-      }
-      const live = getCard(latest, id);
-      if (!live?.held) return toolError(`${id} is not on HOLD`);
+      const blocked = releaseBlockReason(extra, latest, getCard(latest, id), id);
+      if (blocked) return toolError(blocked);
       api.setBoard(releaseCard(latest, id, "you"));
       return toolOk({ ok: true, released: id });
     },
@@ -427,11 +418,9 @@ export async function syncWebmcp(
         if (aborted(extra)) return toolError("cancelled");
         return toolError("human rejected commit");
       }
-      if (aborted(extra)) return toolError("cancelled");
       const latest = api.getBoard();
-      if (!latest.started || latest.committed) {
-        return toolError("board is already locked. Call load_scenario with A to start a new deal.");
-      }
+      const blocked = commitBlockReason(extra, latest);
+      if (blocked) return toolError(blocked);
       api.setBoard(commitDeal(latest, "agent"));
       return toolOk({ ok: true, committed: true });
     },
