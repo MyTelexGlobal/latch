@@ -15,7 +15,7 @@ This is not a theme switcher and not a contract GPT. The innovations a judge sho
 3. **Three attention modes.** List, Side by side, and One at a time are three ways to watch the same grant of authority — audit, table, and latch — not three skins of chrome.
 4. **Honest fixtures.** A / B / C are authority states (all open / one held / one cut). `load_scenario` is labeled a demo reset, not a legal unlock.
 
-Live: [https://latch.aa-c41.workers.dev](https://latch.aa-c41.workers.dev)
+**Links:** [Live demo](https://latch.aa-c41.workers.dev) · [Demo video](https://youtu.be/4jS9rwFFLTI) · [Devpost submission](https://devpost.com/software/latch-ktr7ez)
 
 ## Why WebMCP
 
